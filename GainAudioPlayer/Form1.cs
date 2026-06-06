@@ -28,20 +28,21 @@ namespace GainAudioPlayer
             string audio = aggiungiAudioInCoda();
             if (audio != null)
             {
-                var reader = new AudioFileReader(audio);
-                float[] buffer = new float[4096];
+                var mp3Reader = new Mp3FileReader(audio);
 
+                // ISampleProvider fornisce campioni già come float normalizzati
+                ISampleProvider sampleProvider = mp3Reader.ToSampleProvider();
+                float[] samples = new float[4096];
                 int samplesRead;
-
-                while ((samplesRead = reader.Read(buffer, 0, buffer.Length)) > 0)
+                int iterazione = 0;
+                while ((samplesRead = sampleProvider.Read(samples, 0, samples.Length)) > 0)
                 {
                     for (int i = 0; i < samplesRead; i++)
                     {
-                        float sample = buffer[i];
-
-                        Console.WriteLine(sample);
-                        Debug.WriteLine(sample);
+                        float sample = samples[i]; // valore tra -1.0f e +1.0f
+                                                   .
                     }
+                    iterazione++;
                 }
             }
         }
