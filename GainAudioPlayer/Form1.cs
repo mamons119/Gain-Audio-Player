@@ -1,13 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using NAudio.Wave;
 
@@ -42,11 +35,12 @@ namespace GainAudioPlayer
 
         List<string> codaAudio = new List<string>();
         List<float> campioniCanzone = new List<float>();
+        string audio = "";
 
         private void caricaFileAudio(object sender, EventArgs e)
         {
             campioniCanzone.Clear();
-            string audio = aggiungiAudioInCoda();
+            audio = aggiungiAudioInCoda();
             if (!String.IsNullOrEmpty(audio))
             {
                 var mp3Reader = new Mp3FileReader(audio);
@@ -143,9 +137,15 @@ namespace GainAudioPlayer
 
             e.Graphics.FillRectangle(Brushes.Black, 10, 30, width_osc, height_osc);
             e.Graphics.DrawRectangle(Pens.Red, 9, 29, width_osc + 1, height_osc + 1);
-            centerY = height_osc / 2;
-            g.DrawLine(utilityPen, 0, centerY, width_osc - 1, centerY);
             e.Graphics.DrawImage(canvas, 10, 30);
+
+            // Disegna la linea di posizione sopra il canvas
+            if (waveOut != null && waveOut.PlaybackState == PlaybackState.Playing)
+            {
+                e.Graphics.DrawLine(Pens.Red,
+                    10 + pixelCorrente, 30,
+                    10 + pixelCorrente, 30 + height_osc);
+            }
         }
 
         private void Form1_Resize(object sender, EventArgs e)
@@ -168,6 +168,43 @@ namespace GainAudioPlayer
                 disegnaOnda();
             }
             Invalidate();
+        }
+
+        WaveOutEvent waveOut;
+        AudioFileReader audioReader;
+
+        private void RiproduciAudio()
+        {
+            audioReader = new AudioFileReader(audio);
+            waveOut = new WaveOutEvent();
+            waveOut.Init(audioReader);
+            waveOut.Play();
+
+            // Timer per aggiornare la posizione
+            Timer timer = new Timer();
+            timer.Interval = 16; // ~60fps
+            timer.Tick += AggiornaPosizione;
+            timer.Start();
+        }
+        int pixelCorrente = 0;
+
+        private void AggiornaPosizione(object sender, EventArgs e)
+        {
+            if (audioReader == null) return;
+
+            // Posizione corrente in campioni
+            long campioneTotali = audioReader.Length / 4; // 4 byte per campione float
+            long campioneCorrente = audioReader.Position / 4;
+
+            // Mappa in pixel X
+            pixelCorrente = (int)((float)campioneCorrente / campioneTotali * width_osc);
+
+            Invalidate(); // ridisegna
+        }
+
+        private void toolStripSplitButton1_ButtonClick(object sender, EventArgs e)
+        {
+            RiproduciAudio();
         }
     }
 }
