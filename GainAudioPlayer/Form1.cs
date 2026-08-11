@@ -36,6 +36,7 @@ namespace GainAudioPlayer
         List<string> codaAudio = new List<string>();
         List<float> campioniCanzone = new List<float>();
         string audio = "";
+        bool autoPlay = false;
 
         private void caricaFileAudio(object sender, EventArgs e)
         {
@@ -65,8 +66,30 @@ namespace GainAudioPlayer
                     }
                     iterazione++;
                 }
+
+                if (waveOut != null && (waveOut.PlaybackState == PlaybackState.Playing || waveOut.PlaybackState == PlaybackState.Paused))
+                {
+                    if (waveOut.PlaybackState == PlaybackState.Playing)
+                    {
+                        autoPlay = true;
+                        toolStripDropDownButton_play.Text = "PAUSE";
+                    }
+                    else
+                    {
+                        toolStripDropDownButton_play.Text = "PLAY";
+                    }
+
+                    waveOut.Stop();
+                    waveOut = null;
+                    audioReader = null;
+                }
+
                 disegnaOnda();
                 Invalidate();
+                if (autoPlay)
+                {
+                    riproduciAudio();
+                }
             }
         }
 
@@ -140,7 +163,7 @@ namespace GainAudioPlayer
             e.Graphics.DrawImage(canvas, 10, 30);
 
             // Disegna la linea di posizione sopra il canvas
-            if (waveOut != null && waveOut.PlaybackState == PlaybackState.Playing)
+            if (waveOut != null)// && waveOut.PlaybackState == PlaybackState.Playing)
             {
                 e.Graphics.DrawLine(Pens.Red,
                     10 + pixelCorrente, 30,
@@ -173,38 +196,69 @@ namespace GainAudioPlayer
         WaveOutEvent waveOut;
         AudioFileReader audioReader;
 
-        private void RiproduciAudio()
+        private void riproduciAudio()
         {
-            audioReader = new AudioFileReader(audio);
-            waveOut = new WaveOutEvent();
-            waveOut.Init(audioReader);
-            waveOut.Play();
+            if (waveOut != null && waveOut.PlaybackState == PlaybackState.Paused)
+            {
+                waveOut.Play();
+                return;
+            }
+            if (!String.IsNullOrEmpty(audio))
+            {
+                audioReader = new AudioFileReader(audio);
+                waveOut = new WaveOutEvent();
+                waveOut.Init(audioReader);
+                waveOut.Play();
 
-            // Timer per aggiornare la posizione
-            Timer timer = new Timer();
-            timer.Interval = 16; // ~60fps
-            timer.Tick += AggiornaPosizione;
-            timer.Start();
+                // Timer per aggiornare la posizione
+                Timer timer = new Timer();
+                timer.Interval = 16; // ~60fps
+                timer.Tick += AggiornaPosizione;
+                timer.Start();
+            }
         }
+
+        private void pausaAudio()
+        {
+            if (waveOut != null && waveOut.PlaybackState == PlaybackState.Playing)
+            {
+                waveOut.Pause();
+            }
+        }
+
         int pixelCorrente = 0;
 
         private void AggiornaPosizione(object sender, EventArgs e)
         {
-            if (audioReader == null) return;
+            if (audioReader != null && waveOut.PlaybackState != PlaybackState.Paused)
+            {
+                // Posizione corrente in campioni
+                long campioneTotali = audioReader.Length / 4; // 4 byte per campione float
+                long campioneCorrente = audioReader.Position / 4;
 
-            // Posizione corrente in campioni
-            long campioneTotali = audioReader.Length / 4; // 4 byte per campione float
-            long campioneCorrente = audioReader.Position / 4;
-
-            // Mappa in pixel X
-            pixelCorrente = (int)((float)campioneCorrente / campioneTotali * width_osc);
+                // Mappa in pixel X
+                pixelCorrente = (int)((float)campioneCorrente / campioneTotali * width_osc);
+            }
 
             Invalidate(); // ridisegna
         }
 
-        private void toolStripSplitButton1_ButtonClick(object sender, EventArgs e)
+        private void toolStripDropDownButton_play_Click(object sender, EventArgs e)
         {
-            RiproduciAudio();
+            switch (toolStripDropDownButton_play.Text)
+            {
+                case "PLAY":
+                    riproduciAudio();
+                    if (audioReader != null)
+                    {
+                        toolStripDropDownButton_play.Text = "PAUSE";
+                    }
+                    break;
+                case "PAUSE":
+                    toolStripDropDownButton_play.Text = "PLAY";
+                    pausaAudio();
+                    break;
+            }
         }
     }
 }
